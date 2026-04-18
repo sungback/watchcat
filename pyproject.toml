@@ -1,0 +1,17 @@
+[project]
+name = "watchcat"
+version = "1.0.0"
+description = "macOS NFD to NFC Converter"
+requires-python = ">=3.10"
+dependencies = [
+    "flet",
+    "watchdog",
+    "certifi"
+]
+
+[tool.flet]
+product = "watchcat"
+artifact = "watchcat"
+
+[tool.flet.app]
+module = "main.py"

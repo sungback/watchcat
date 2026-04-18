@@ -1,0 +1,61 @@
+name: Build Desktop App
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+env:
+  UV_PYTHON: "3.12"
+  PYTHONUTF8: "1"
+  FLET_CLI_NO_RICH_OUTPUT: "1"
+
+jobs:
+  build:
+    name: Build ${{ matrix.name }}
+    runs-on: ${{ matrix.runner }}
+    permissions:
+      contents: read
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: macos
+            runner: macos-15
+            build_cmd: flet build macos
+            artifact_path: build/macos
+          - name: windows
+            runner: windows-2022
+            build_cmd: flet build windows
+            artifact_path: build/windows
+
+    defaults:
+      run:
+        shell: bash
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup uv
+        uses: astral-sh/setup-uv@v6
+
+      - name: Install macOS prerequisites
+        if: matrix.name == 'macos'
+        run: |
+          sudo softwareupdate --install-rosetta --agree-to-license || true
+          if ! command -v pod >/dev/null 2>&1; then
+            sudo gem install cocoapods
+          fi
+          pod --version
+
+      - name: Build app
+        run: |
+          uv run ${{ matrix.build_cmd }} --yes --verbose
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.name }}-build-artifact
+          path: ${{ matrix.artifact_path }}
+          if-no-files-found: error
