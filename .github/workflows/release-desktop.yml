@@ -159,6 +159,7 @@ jobs:
 
       - name: Notarize macOS app
         if: matrix.name == 'macos'
+        id: notarize_macos_app
         env:
           APPLE_ID: ${{ secrets.APPLE_ID }}
           APPLE_PASSWORD: ${{ secrets.APPLE_PASSWORD }}
@@ -166,18 +167,49 @@ jobs:
         run: |
           app_path="${{ steps.locate_macos_app.outputs.app_path }}"
           notarize_zip="$RUNNER_TEMP/watchcat-notarize.zip"
+          notarize_result="$RUNNER_TEMP/notarytool-submit.json"
+          notarize_log="$RUNNER_TEMP/notarytool-log.json"
           ditto -c -k --keepParent "$app_path" "$notarize_zip"
           xcrun notarytool submit "$notarize_zip" \
             --apple-id "$APPLE_ID" \
             --password "$APPLE_PASSWORD" \
             --team-id "$APPLE_TEAM_ID" \
-            --wait
+            --wait \
+            --output-format json > "$notarize_result"
+          cat "$notarize_result"
+          submission_id="$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1], encoding="utf-8")).get("id", ""))' "$notarize_result")"
+          submission_status="$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1], encoding="utf-8")).get("status", ""))' "$notarize_result")"
+          echo "submission_id=$submission_id" >> "$GITHUB_OUTPUT"
+          echo "submission_status=$submission_status" >> "$GITHUB_OUTPUT"
+          if [ "$submission_status" != "Accepted" ]; then
+            if [ -n "$submission_id" ]; then
+              xcrun notarytool log "$submission_id" \
+                --apple-id "$APPLE_ID" \
+                --password "$APPLE_PASSWORD" \
+                --team-id "$APPLE_TEAM_ID" \
+                "$notarize_log" || true
+              if [ -f "$notarize_log" ]; then
+                cat "$notarize_log"
+              fi
+            fi
+            echo "Notarization did not succeed. Final status: $submission_status"
+            exit 1
+          fi
 
       - name: Staple notarization ticket
         if: matrix.name == 'macos'
         run: |
           app_path="${{ steps.locate_macos_app.outputs.app_path }}"
-          xcrun stapler staple "$app_path"
+          for attempt in 1 2 3 4 5; do
+            if xcrun stapler staple "$app_path"; then
+              break
+            fi
+            if [ "$attempt" -eq 5 ]; then
+              echo "Stapling failed after $attempt attempts for notarization submission ${{ steps.notarize_macos_app.outputs.submission_id }}"
+              exit 1
+            fi
+            sleep $((attempt * 15))
+          done
           xcrun stapler validate "$app_path"
           spctl -a -vv "$app_path"
 
