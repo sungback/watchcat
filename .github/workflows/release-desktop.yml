@@ -312,6 +312,21 @@ jobs:
           app_path="${{ steps.locate_macos_app.outputs.app_path }}"
           ditto -c -k --sequesterRsrc --keepParent "$app_path" "dist/${{ matrix.artifact_name }}.zip"
 
+      - name: Verify packaged macOS release zip
+        if: matrix.name == 'macos'
+        run: |
+          zip_path="dist/${{ matrix.artifact_name }}.zip"
+          verify_dir="$(mktemp -d)"
+          ditto -x -k "$zip_path" "$verify_dir"
+          app_path="$(find "$verify_dir" -name '*.app' -print -quit)"
+          if [ -z "$app_path" ]; then
+            echo "No .app bundle found after extracting release zip"
+            exit 1
+          fi
+          codesign --verify --deep --strict --verbose=2 "$app_path"
+          xcrun stapler validate "$app_path"
+          spctl -a -vv "$app_path"
+
       - name: Package Windows app
         if: matrix.name == 'windows'
         shell: pwsh

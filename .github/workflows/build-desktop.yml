@@ -30,11 +30,11 @@ jobs:
           - name: macos
             runner: macos-15
             build_target: macos
-            artifact_name: watchcat-macos
+            artifact_name: watchcat-macos-unsigned-ci
           - name: windows
             runner: windows-2022
             build_target: windows
-            artifact_name: watchcat-windows
+            artifact_name: watchcat-windows-unsigned-ci
 
     defaults:
       run:
@@ -86,6 +86,11 @@ jobs:
             echo "No .app bundle found in build/macos"
             exit 1
           fi
+          cat > dist/UNSIGNED_CI_ARTIFACT.txt <<'EOF'
+          This archive is produced by the Desktop CI workflow.
+          It is for build verification only and is not notarized for public distribution.
+          Use the GitHub Release asset produced by release-desktop.yml for end-user delivery.
+          EOF
           ditto -c -k --sequesterRsrc --keepParent "$app_path" "dist/${{ matrix.artifact_name }}.zip"
 
       - name: Package Windows app
@@ -93,6 +98,11 @@ jobs:
         shell: pwsh
         run: |
           New-Item -ItemType Directory -Force -Path dist | Out-Null
+          @"
+          This archive is produced by the Desktop CI workflow.
+          It is for build verification only and is not a signed release artifact.
+          Use the GitHub Release asset produced by release-desktop.yml for end-user delivery.
+          "@ | Set-Content -Path "dist/UNSIGNED_CI_ARTIFACT.txt"
           $zipPath = "dist/${{ matrix.artifact_name }}.zip"
           if (Test-Path $zipPath) {
             Remove-Item $zipPath -Force
@@ -107,5 +117,7 @@ jobs:
         uses: actions/upload-artifact@v6
         with:
           name: ${{ matrix.artifact_name }}
-          path: dist/${{ matrix.artifact_name }}.zip
+          path: |
+            dist/${{ matrix.artifact_name }}.zip
+            dist/UNSIGNED_CI_ARTIFACT.txt
           if-no-files-found: error
