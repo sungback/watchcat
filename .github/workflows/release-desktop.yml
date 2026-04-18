@@ -99,12 +99,14 @@ jobs:
         run: |
           app_path="${{ steps.locate_macos_app.outputs.app_path }}"
           broken_links="$(find -L "$app_path" -type l -print || true)"
-          absolute_links="$(find "$app_path" -type l -print | while IFS= read -r link; do
-            target="$(readlink "$link" || true)"
-            case "$target" in
-              /*) printf '%s\n' "$link" ;;
-            esac
-          done)"
+          absolute_links="$(find "$app_path" -type l -exec sh -c '
+            for link do
+              target=$(readlink "$link" || true)
+              if [ -n "$target" ] && [ "${target#/}" != "$target" ]; then
+                printf "%s\n" "$link"
+              fi
+            done
+          ' sh {} +)"
           unsafe_links="$(printf '%s\n%s\n' "$broken_links" "$absolute_links" | awk 'NF && !seen[$0]++')"
           if [ -n "$unsafe_links" ]; then
             printf '%s\n' "$unsafe_links"
