@@ -1,6 +1,6 @@
 [project]
 name = "watchcat"
-version = "1.0.1"
+version = "1.0.2"
 description = "macOS NFD to NFC Converter"
 requires-python = ">=3.10"
 dependencies = [
