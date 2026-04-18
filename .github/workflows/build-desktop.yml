@@ -5,7 +5,6 @@ on:
     branches:
       - main
   pull_request:
-  workflow_dispatch:
 
 env:
   UV_PYTHON: "3.12"
@@ -30,11 +29,9 @@ jobs:
           - name: macos
             runner: macos-15
             build_target: macos
-            artifact_name: watchcat-macos-unsigned-ci
           - name: windows
             runner: windows-2022
             build_target: windows
-            artifact_name: watchcat-windows-unsigned-ci
 
     defaults:
       run:
@@ -76,48 +73,3 @@ jobs:
       - name: Show build outputs
         run: |
           find build -maxdepth 6 -print
-
-      - name: Package macOS app
-        if: matrix.name == 'macos'
-        run: |
-          mkdir -p dist
-          app_path="$(find build/macos -name '*.app' -print -quit)"
-          if [ -z "$app_path" ]; then
-            echo "No .app bundle found in build/macos"
-            exit 1
-          fi
-          cat > dist/UNSIGNED_CI_ARTIFACT.txt <<'EOF'
-          This archive is produced by the Desktop CI workflow.
-          It is for build verification only and is not notarized for public distribution.
-          Use the GitHub Release asset produced by release-desktop.yml for end-user delivery.
-          EOF
-          ditto -c -k --sequesterRsrc --keepParent "$app_path" "dist/${{ matrix.artifact_name }}.zip"
-
-      - name: Package Windows app
-        if: matrix.name == 'windows'
-        shell: pwsh
-        run: |
-          New-Item -ItemType Directory -Force -Path dist | Out-Null
-          @"
-          This archive is produced by the Desktop CI workflow.
-          It is for build verification only and is not a signed release artifact.
-          Use the GitHub Release asset produced by release-desktop.yml for end-user delivery.
-          "@ | Set-Content -Path "dist/UNSIGNED_CI_ARTIFACT.txt"
-          $zipPath = "dist/${{ matrix.artifact_name }}.zip"
-          if (Test-Path $zipPath) {
-            Remove-Item $zipPath -Force
-          }
-          $exe = Get-ChildItem "build/windows" -Recurse -Filter *.exe -File | Select-Object -First 1
-          if (-not $exe) {
-            throw "Expected an .exe file somewhere under build/windows."
-          }
-          Compress-Archive -Path "build/windows/*" -DestinationPath $zipPath
-
-      - name: Upload artifact
-        uses: actions/upload-artifact@v6
-        with:
-          name: ${{ matrix.artifact_name }}
-          path: |
-            dist/${{ matrix.artifact_name }}.zip
-            dist/UNSIGNED_CI_ARTIFACT.txt
-          if-no-files-found: error
