@@ -149,7 +149,21 @@ jobs:
             echo "Found identity: $signing_identity"
             exit 1
           fi
-          codesign --force --deep --options runtime --timestamp --sign "$signing_identity" "$app_path"
+          frameworks_dir="$app_path/Contents/Frameworks"
+
+          # Sign nested Mach-O files first so Python/OpenSSL dylibs get a fresh
+          # Developer ID signature and secure timestamp before the bundle signs.
+          find "$frameworks_dir" -type f -print0 | while IFS= read -r -d '' file_path; do
+            if file -b "$file_path" | grep -q "Mach-O"; then
+              codesign --force --timestamp --sign "$signing_identity" "$file_path"
+            fi
+          done
+
+          find "$frameworks_dir" -depth -type d \( -name "*.framework" -o -name "*.app" -o -name "*.xpc" \) -print0 | while IFS= read -r -d '' bundle_path; do
+            codesign --force --options runtime --timestamp --sign "$signing_identity" "$bundle_path"
+          done
+
+          codesign --force --options runtime --timestamp --sign "$signing_identity" "$app_path"
 
       - name: Verify macOS signature
         if: matrix.name == 'macos'
