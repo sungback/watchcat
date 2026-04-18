@@ -27,7 +27,7 @@ jobs:
       matrix:
         include:
           - name: macos
-            runner: macos-14
+            runner: macos-15
             build_target: macos
             artifact_name: watchcat-macos
           - name: windows
@@ -49,6 +49,7 @@ jobs:
       - name: Install macOS prerequisites
         if: matrix.name == 'macos'
         run: |
+          xcodebuild -version
           sudo softwareupdate --install-rosetta --agree-to-license || true
           if ! command -v pod >/dev/null 2>&1; then
             sudo gem install cocoapods
