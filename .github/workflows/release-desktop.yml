@@ -76,14 +76,15 @@ jobs:
       - name: Validate macOS signing secrets
         if: matrix.name == 'macos'
         env:
-          APPLE_CERT_P12_BASE64: ${{ secrets.APPLE_CERT_P12_BASE64 }}
-          APPLE_CERT_PASSWORD: ${{ secrets.APPLE_CERT_PASSWORD }}
-          APPLE_KEY_ID: ${{ secrets.APPLE_KEY_ID }}
-          APPLE_ISSUER_ID: ${{ secrets.APPLE_ISSUER_ID }}
-          APPLE_API_KEY_P8_BASE64: ${{ secrets.APPLE_API_KEY_P8_BASE64 }}
+          APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
+          APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_PASSWORD: ${{ secrets.APPLE_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+          KEYCHAIN_PASSWORD: ${{ secrets.KEYCHAIN_PASSWORD }}
         run: |
           missing=0
-          for var in APPLE_CERT_P12_BASE64 APPLE_CERT_PASSWORD APPLE_KEY_ID APPLE_ISSUER_ID APPLE_API_KEY_P8_BASE64; do
+          for var in APPLE_CERTIFICATE APPLE_CERTIFICATE_PASSWORD APPLE_ID APPLE_PASSWORD APPLE_TEAM_ID KEYCHAIN_PASSWORD; do
             if [ -z "${!var}" ]; then
               echo "Missing required GitHub secret: $var"
               missing=1
@@ -96,17 +97,18 @@ jobs:
       - name: Import Apple signing certificate
         if: matrix.name == 'macos'
         env:
-          APPLE_CERT_P12_BASE64: ${{ secrets.APPLE_CERT_P12_BASE64 }}
-          APPLE_CERT_PASSWORD: ${{ secrets.APPLE_CERT_PASSWORD }}
+          APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
+          APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+          KEYCHAIN_PASSWORD: ${{ secrets.KEYCHAIN_PASSWORD }}
         run: |
           cert_path="$RUNNER_TEMP/apple-cert.p12"
           keychain_path="$RUNNER_TEMP/app-signing.keychain-db"
-          printf '%s' "$APPLE_CERT_P12_BASE64" | openssl base64 -d -A -out "$cert_path"
-          security create-keychain -p "" "$keychain_path"
+          printf '%s' "$APPLE_CERTIFICATE" | openssl base64 -d -A -out "$cert_path"
+          security create-keychain -p "$KEYCHAIN_PASSWORD" "$keychain_path"
           security set-keychain-settings -lut 21600 "$keychain_path"
-          security unlock-keychain -p "" "$keychain_path"
-          security import "$cert_path" -P "$APPLE_CERT_PASSWORD" -A -t cert -f pkcs12 -k "$keychain_path"
-          security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k "" "$keychain_path"
+          security unlock-keychain -p "$KEYCHAIN_PASSWORD" "$keychain_path"
+          security import "$cert_path" -P "$APPLE_CERTIFICATE_PASSWORD" -A -t cert -f pkcs12 -k "$keychain_path"
+          security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k "$KEYCHAIN_PASSWORD" "$keychain_path"
           security list-keychains -d user -s "$keychain_path"
           security default-keychain -d user -s "$keychain_path"
 
@@ -137,19 +139,17 @@ jobs:
       - name: Notarize macOS app
         if: matrix.name == 'macos'
         env:
-          APPLE_KEY_ID: ${{ secrets.APPLE_KEY_ID }}
-          APPLE_ISSUER_ID: ${{ secrets.APPLE_ISSUER_ID }}
-          APPLE_API_KEY_P8_BASE64: ${{ secrets.APPLE_API_KEY_P8_BASE64 }}
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_PASSWORD: ${{ secrets.APPLE_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
         run: |
           app_path="${{ steps.locate_macos_app.outputs.app_path }}"
-          api_key_path="$RUNNER_TEMP/AuthKey_${APPLE_KEY_ID}.p8"
           notarize_zip="$RUNNER_TEMP/watchcat-notarize.zip"
-          printf '%s' "$APPLE_API_KEY_P8_BASE64" | openssl base64 -d -A -out "$api_key_path"
           ditto -c -k --keepParent "$app_path" "$notarize_zip"
           xcrun notarytool submit "$notarize_zip" \
-            --key "$api_key_path" \
-            --key-id "$APPLE_KEY_ID" \
-            --issuer "$APPLE_ISSUER_ID" \
+            --apple-id "$APPLE_ID" \
+            --password "$APPLE_PASSWORD" \
+            --team-id "$APPLE_TEAM_ID" \
             --wait
 
       - name: Staple notarization ticket
