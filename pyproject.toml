@@ -1,6 +1,6 @@
 [project]
 name = "watchcat"
-version = "1.0.13"
+version = "1.0.14"
 description = "macOS NFD to NFC Converter"
 requires-python = ">=3.10"
 dependencies = [
@@ -15,3 +15,21 @@ artifact = "watchcat"
 
 [tool.flet.app]
 module = "main.py"
+exclude = [
+    "tests",
+    ".venv",
+    ".claude",
+    ".git",
+    ".pytest_cache",
+    ".ruff_cache",
+    ".mypy_cache",
+    ".hypothesis",
+    "htmlcov",
+    ".coverage",
+]
+
+[tool.flet.cleanup]
+app_files = [
+    "test_*.py",
+    "conftest.py",
+]
