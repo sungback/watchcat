@@ -150,6 +150,26 @@ jobs:
             exit 1
           fi
           frameworks_dir="$app_path/Contents/Frameworks"
+          embedded_app_zip="$app_path/Contents/Frameworks/App.framework/Versions/A/Resources/flutter_assets/app/app.zip"
+
+          if [ -f "$embedded_app_zip" ]; then
+            tmp_zip_dir="$(mktemp -d)"
+            extracted_app_dir="$tmp_zip_dir/app"
+            mkdir -p "$extracted_app_dir"
+            ditto -x -k "$embedded_app_zip" "$extracted_app_dir"
+
+            find "$extracted_app_dir" -type f -print0 | while IFS= read -r -d '' file_path; do
+              if file -b "$file_path" | grep -q "Mach-O"; then
+                codesign --force --timestamp --sign "$signing_identity" "$file_path"
+              fi
+            done
+
+            rm -f "$embedded_app_zip"
+            (
+              cd "$extracted_app_dir"
+              /usr/bin/zip -qry --symlinks "$embedded_app_zip" .
+            )
+          fi
 
           # Sign nested Mach-O files first so Python/OpenSSL dylibs get a fresh
           # Developer ID signature and secure timestamp before the bundle signs.
