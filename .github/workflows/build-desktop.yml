@@ -11,6 +11,7 @@ env:
   UV_PYTHON: "3.12"
   PYTHONUTF8: "1"
   FLET_CLI_NO_RICH_OUTPUT: "1"
+  FLET_CLI_VERSION: "0.83.1"
 
 concurrency:
   group: desktop-ci-${{ github.ref }}
@@ -27,12 +28,12 @@ jobs:
       matrix:
         include:
           - name: macos
-            runner: macos-15
-            build_cmd: flet build macos
+            runner: macos-14
+            build_target: macos
             artifact_name: watchcat-macos
           - name: windows
             runner: windows-2022
-            build_cmd: flet build windows
+            build_target: windows
             artifact_name: watchcat-windows
 
     defaults:
@@ -57,7 +58,19 @@ jobs:
 
       - name: Build app
         run: |
-          uv run ${{ matrix.build_cmd }} --yes --verbose
+          uvx --from "flet-cli==${FLET_CLI_VERSION}" flet build ${{ matrix.build_target }} --yes --verbose --clear-cache
+
+      - name: Diagnose failed build
+        if: failure()
+        run: |
+          echo "Build tree:"
+          find build -maxdepth 8 -print || true
+          echo
+          echo "Flutter build tree:"
+          find build/flutter/build -maxdepth 8 -print || true
+          echo
+          echo "Packaged app contents:"
+          find build/flutter/app -maxdepth 4 -print || true
 
       - name: Show build outputs
         run: |
