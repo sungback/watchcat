@@ -139,6 +139,7 @@ jobs:
           APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
         run: |
           app_path="${{ steps.locate_macos_app.outputs.app_path }}"
+          app_path="$(cd "$(dirname "$app_path")" && pwd)/$(basename "$app_path")"
           signing_identity="$(security find-identity -v -p codesigning | sed -n 's/.*"\(Developer ID Application:.*\)"/\1/p' | head -n 1)"
           if [ -z "$signing_identity" ]; then
             echo "Developer ID Application identity was not found in the imported keychain"
@@ -155,6 +156,7 @@ jobs:
           if [ -f "$embedded_app_zip" ]; then
             tmp_zip_dir="$(mktemp -d)"
             extracted_app_dir="$tmp_zip_dir/app"
+            repacked_app_zip="$tmp_zip_dir/app.zip"
             mkdir -p "$extracted_app_dir"
             ditto -x -k "$embedded_app_zip" "$extracted_app_dir"
 
@@ -167,8 +169,10 @@ jobs:
             rm -f "$embedded_app_zip"
             (
               cd "$extracted_app_dir"
-              /usr/bin/zip -qry --symlinks "$embedded_app_zip" .
+              /usr/bin/zip -qry --symlinks "$repacked_app_zip" .
             )
+            mv "$repacked_app_zip" "$embedded_app_zip"
+            rm -rf "$tmp_zip_dir"
           fi
 
           # Sign nested Mach-O files first so Python/OpenSSL dylibs get a fresh
