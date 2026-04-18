@@ -150,6 +150,35 @@ jobs:
             echo "Found identity: $signing_identity"
             exit 1
           fi
+          sign_macho() {
+            file_path="$1"
+            file_description="$(file -b "$file_path")"
+            if ! printf '%s' "$file_description" | grep -q "Mach-O"; then
+              return 0
+            fi
+
+            codesign_args=(--force --timestamp --sign "$signing_identity")
+            if printf '%s' "$file_description" | grep -Eq 'Mach-O.*(executable|bundle)'; then
+              codesign_args+=(--options runtime)
+            fi
+
+            codesign "${codesign_args[@]}" "$file_path"
+          }
+
+          assert_hardened_runtime() {
+            file_path="$1"
+            file_description="$(file -b "$file_path")"
+            if ! printf '%s' "$file_description" | grep -Eq 'Mach-O.*(executable|bundle)'; then
+              return 0
+            fi
+
+            if ! codesign -d --verbose=4 "$file_path" 2>&1 | grep -q "Runtime Version"; then
+              echo "Missing hardened runtime: $file_path"
+              codesign -d --verbose=4 "$file_path" 2>&1 || true
+              exit 1
+            fi
+          }
+
           frameworks_dir="$app_path/Contents/Frameworks"
           embedded_app_zip="$app_path/Contents/Frameworks/App.framework/Versions/A/Resources/flutter_assets/app/app.zip"
 
@@ -161,9 +190,11 @@ jobs:
             ditto -x -k "$embedded_app_zip" "$extracted_app_dir"
 
             find "$extracted_app_dir" -type f -print0 | while IFS= read -r -d '' file_path; do
-              if file -b "$file_path" | grep -q "Mach-O"; then
-                codesign --force --timestamp --sign "$signing_identity" "$file_path"
-              fi
+              sign_macho "$file_path"
+            done
+
+            find "$extracted_app_dir" -type f -print0 | while IFS= read -r -d '' file_path; do
+              assert_hardened_runtime "$file_path"
             done
 
             rm -f "$embedded_app_zip"
@@ -178,9 +209,7 @@ jobs:
           # Sign nested Mach-O files first so Python/OpenSSL dylibs get a fresh
           # Developer ID signature and secure timestamp before the bundle signs.
           find "$frameworks_dir" -type f -print0 | while IFS= read -r -d '' file_path; do
-            if file -b "$file_path" | grep -q "Mach-O"; then
-              codesign --force --timestamp --sign "$signing_identity" "$file_path"
-            fi
+            sign_macho "$file_path"
           done
 
           find "$frameworks_dir" -depth -type d \( -name "*.framework" -o -name "*.app" -o -name "*.xpc" \) -print0 | while IFS= read -r -d '' bundle_path; do
@@ -188,6 +217,17 @@ jobs:
           done
 
           codesign --force --options runtime --timestamp --sign "$signing_identity" "$app_path"
+
+          if [ -f "$embedded_app_zip" ]; then
+            tmp_verify_dir="$(mktemp -d)"
+            verify_embedded_app_dir="$tmp_verify_dir/app"
+            mkdir -p "$verify_embedded_app_dir"
+            ditto -x -k "$embedded_app_zip" "$verify_embedded_app_dir"
+            find "$verify_embedded_app_dir" -type f -print0 | while IFS= read -r -d '' file_path; do
+              assert_hardened_runtime "$file_path"
+            done
+            rm -rf "$tmp_verify_dir"
+          fi
 
       - name: Verify macOS signature
         if: matrix.name == 'macos'
