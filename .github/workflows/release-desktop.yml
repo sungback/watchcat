@@ -94,6 +94,18 @@ jobs:
             exit 1
           fi
 
+      - name: Remove broken symlinks from macOS app bundle
+        if: matrix.name == 'macos'
+        run: |
+          app_path="${{ steps.locate_macos_app.outputs.app_path }}"
+          broken_links="$(find -L "$app_path" -type l -print || true)"
+          if [ -n "$broken_links" ]; then
+            printf '%s\n' "$broken_links"
+            printf '%s\n' "$broken_links" | while IFS= read -r link; do
+              [ -n "$link" ] && rm -f "$link"
+            done
+          fi
+
       - name: Import Apple signing certificate
         if: matrix.name == 'macos'
         env:
