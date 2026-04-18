@@ -33,3 +33,7 @@ app_files = [
     "test_*.py",
     "conftest.py",
 ]
+
+[tool.flet.flutter.pubspec.dependency_overrides]
+connectivity_plus = "7.0.0"
+device_info_plus = "12.3.0"
