@@ -8,33 +8,33 @@ import flet as ft
 from watchdog.observers import Observer
 from watchdog.events import FileSystemEventHandler
 
+
 IS_MACOS = sys.platform == "darwin"
 IS_WINDOWS = sys.platform.startswith("win")
+
 
 # --- NFD 시각화용 자모 매핑표 (유니코드 호환 자모) ---
 JAMO_MAP = {
     # 초성
-    0x1100: '\u3131', 0x1101: '\u3132', 0x1102: '\u3134', 0x1103: '\u3137',
-    0x1104: '\u3138', 0x1105: '\u3139', 0x1106: '\u3141', 0x1107: '\u3142',
-    0x1108: '\u3143', 0x1109: '\u3145', 0x110A: '\u3146', 0x110B: '\u3147',
-    0x110C: '\u3148', 0x110D: '\u3149', 0x110E: '\u314A', 0x110F: '\u314B',
-    0x1110: '\u314C', 0x1111: '\u314D', 0x1112: '\u314E',
+    0x1100: 'ㄱ', 0x1101: 'ㄲ', 0x1102: 'ㄴ', 0x1103: 'ㄷ', 0x1104: 'ㄸ',
+    0x1105: 'ㄹ', 0x1106: 'ㅁ', 0x1107: 'ㅂ', 0x1108: 'ㅃ', 0x1109: 'ㅅ',
+    0x110A: 'ㅆ', 0x110B: 'ㅇ', 0x110C: 'ㅈ', 0x110D: 'ㅉ', 0x110E: 'ㅊ',
+    0x110F: 'ㅋ', 0x1110: 'ㅌ', 0x1111: 'ㅍ', 0x1112: 'ㅎ',
     # 중성
-    0x1161: '\u314F', 0x1162: '\u3150', 0x1163: '\u3151', 0x1164: '\u3152',
-    0x1165: '\u3153', 0x1166: '\u3154', 0x1167: '\u3155', 0x1168: '\u3156',
-    0x1169: '\u3157', 0x116A: '\u3158', 0x116B: '\u3159', 0x116C: '\u315A',
-    0x116D: '\u315B', 0x116E: '\u315C', 0x116F: '\u315D', 0x1170: '\u315E',
-    0x1171: '\u315F', 0x1172: '\u3160', 0x1173: '\u3161', 0x1174: '\u3162',
-    0x1175: '\u3163',
+    0x1161: 'ㅏ', 0x1162: 'ㅐ', 0x1163: 'ㅑ', 0x1164: 'ㅒ', 0x1165: 'ㅓ',
+    0x1166: 'ㅔ', 0x1167: 'ㅕ', 0x1168: 'ㅖ', 0x1169: 'ㅗ', 0x116A: 'ㅘ',
+    0x116B: 'ㅙ', 0x116C: 'ㅚ', 0x116D: 'ㅛ', 0x116E: 'ㅜ', 0x116F: 'ㅝ',
+    0x1170: 'ㅞ', 0x1171: 'ㅟ', 0x1172: 'ㅠ', 0x1173: 'ㅡ', 0x1174: 'ㅢ',
+    0x1175: 'ㅣ',
     # 종성
-    0x11A8: '\u3131', 0x11A9: '\u3132', 0x11AA: '\u3133', 0x11AB: '\u3134',
-    0x11AC: '\u3135', 0x11AD: '\u3136', 0x11AE: '\u3137', 0x11AF: '\u3139',
-    0x11B0: '\u313A', 0x11B1: '\u313B', 0x11B2: '\u313C', 0x11B3: '\u313D',
-    0x11B4: '\u313E', 0x11B5: '\u313F', 0x11B6: '\u3140', 0x11B7: '\u3141',
-    0x11B8: '\u3142', 0x11B9: '\u3144', 0x11BA: '\u3145', 0x11BB: '\u3146',
-    0x11BC: '\u3147', 0x11BD: '\u3148', 0x11BE: '\u314A', 0x11BF: '\u314B',
-    0x11C0: '\u314C', 0x11C1: '\u314D', 0x11C2: '\u314E'
+    0x11A8: 'ㄱ', 0x11A9: 'ㄲ', 0x11AA: 'ㄳ', 0x11AB: 'ㄴ', 0x11AC: 'ㄵ',
+    0x11AD: 'ㄶ', 0x11AE: 'ㄷ', 0x11AF: 'ㄹ', 0x11B0: 'ㄺ', 0x11B1: 'ㄻ',
+    0x11B2: 'ㄼ', 0x11B3: 'ㄽ', 0x11B4: 'ㄾ', 0x11B5: 'ㄿ', 0x11B6: 'ㅀ',
+    0x11B7: 'ㅁ', 0x11B8: 'ㅂ', 0x11B9: 'ㅄ', 0x11BA: 'ㅅ', 0x11BB: 'ㅆ',
+    0x11BC: 'ㅇ', 0x11BD: 'ㅈ', 0x11BE: 'ㅊ', 0x11BF: 'ㅋ', 0x11C0: 'ㅌ',
+    0x11C1: 'ㅍ', 0x11C2: 'ㅎ'
 }
+
 
 def visualize_nfd(text):
     """
@@ -51,6 +51,7 @@ def visualize_nfd(text):
         else:
             result += char
     return result
+
 
 class NFCConverterHandler(FileSystemEventHandler):
     def __init__(self, log_callback):
@@ -98,6 +99,7 @@ def pick_folder_mac_native():
     script = 'POSIX path of (choose folder with prompt "감시할 폴더를 선택하세요")'
     result = subprocess.check_output(["osascript", "-e", script], text=True).strip()
     return result or None
+
 
 def main(page: ft.Page):
     page.title = "K-Fixer: 한글 자소 분리 해결사"
@@ -232,6 +234,7 @@ def main(page: ft.Page):
             )
         ], expand=True)
     )
+
 
 if __name__ == "__main__":
     try:

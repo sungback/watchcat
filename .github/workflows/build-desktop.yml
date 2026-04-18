@@ -9,6 +9,7 @@ env:
   UV_PYTHON: "3.12"
   PYTHONUTF8: "1"
   FLET_CLI_NO_RICH_OUTPUT: "1"
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
 
 jobs:
   build:
@@ -23,11 +24,11 @@ jobs:
           - name: macos
             runner: macos-15
             build_cmd: flet build macos
-            artifact_path: build/macos
+            artifact_name: watchcat-macos
           - name: windows
             runner: windows-2022
             build_cmd: flet build windows
-            artifact_path: build/windows
+            artifact_name: watchcat-windows
 
     defaults:
       run:
@@ -53,9 +54,39 @@ jobs:
         run: |
           uv run ${{ matrix.build_cmd }} --yes --verbose
 
+      - name: Show build outputs
+        run: |
+          find build -maxdepth 3 -print
+
+      - name: Package macOS app
+        if: matrix.name == 'macos'
+        run: |
+          mkdir -p dist
+          app_path="$(find build/macos -maxdepth 1 -name '*.app' -print -quit)"
+          if [ -z "$app_path" ]; then
+            echo "No .app bundle found in build/macos"
+            exit 1
+          fi
+          ditto -c -k --sequesterRsrc --keepParent "$app_path" "dist/${{ matrix.artifact_name }}.zip"
+
+      - name: Package Windows app
+        if: matrix.name == 'windows'
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force -Path dist | Out-Null
+          $zipPath = "dist/${{ matrix.artifact_name }}.zip"
+          if (Test-Path $zipPath) {
+            Remove-Item $zipPath -Force
+          }
+          $exe = Get-ChildItem "build/windows" -Filter *.exe -File | Select-Object -First 1
+          if (-not $exe) {
+            throw "Expected an .exe file in build/windows."
+          }
+          Compress-Archive -Path "build/windows/*" -DestinationPath $zipPath
+
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
-          name: ${{ matrix.name }}-build-artifact
-          path: ${{ matrix.artifact_path }}
+          name: ${{ matrix.artifact_name }}
+          path: dist/${{ matrix.artifact_name }}.zip
           if-no-files-found: error
