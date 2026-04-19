@@ -3,6 +3,7 @@ import tempfile
 import unittest
 import unicodedata
 from unittest import mock
+import tomllib
 
 import main
 
@@ -117,6 +118,28 @@ class BulkFixTests(unittest.TestCase):
 
         self.assertEqual(results, [(2, 2)])
         self.assertEqual(len(messages), 2)
+
+
+class PackagingConfigTests(unittest.TestCase):
+    def test_flet_exclude_blocks_dev_only_metadata_from_app_zip(self):
+        with open("pyproject.toml", "rb") as fp:
+            pyproject = tomllib.load(fp)
+
+        excludes = set(pyproject["tool"]["flet"]["app"]["exclude"])
+
+        self.assertTrue(
+            {
+                ".github",
+                ".omc",
+                ".vscode",
+                ".DS_Store",
+                ".gitignore",
+                "AGENTS.md",
+                "CLAUDE.md",
+                "README.md",
+                "uv.lock",
+            }.issubset(excludes)
+        )
 
 
 if __name__ == "__main__":

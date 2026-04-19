@@ -16,16 +16,28 @@ artifact = "watchcat"
 [tool.flet.app]
 module = "main.py"
 exclude = [
+    ".DS_Store",
+    ".github",
+    ".gitignore",
     "tests",
     ".venv",
     ".claude",
     ".git",
+    ".omc",
+    ".vscode",
+    "__pycache__",
+    "build",
+    "dist",
     ".pytest_cache",
     ".ruff_cache",
     ".mypy_cache",
     ".hypothesis",
     "htmlcov",
     ".coverage",
+    "AGENTS.md",
+    "CLAUDE.md",
+    "README.md",
+    "uv.lock",
 ]
 
 [tool.flet.cleanup]
